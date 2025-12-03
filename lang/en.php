@@ -110,11 +110,13 @@ return [
     'news_gallery' => 'Photo Gallery',
     'news_back' => 'Back to News',
     'news_recent' => 'Recent Posts',
+    'news_empty' => 'There is no recent news to show at this time.',
 
     // --- GALLERY PREVIEW ---
     'gallery_title' => 'Featured Gallery',
     'gallery_desc' => 'Unforgettable moments on stage and behind the scenes.',
     'gallery_btn' => 'View Full Gallery',
+    'gallery_empty' => 'Our gallery is currently being updated.',
     
     // --- SECCIÓN FOOTER ---
     'footer_desc' => 'Banda de Baranoa Foundation.<br>Transforming lives through music and culture since 1995.',

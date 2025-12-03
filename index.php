@@ -19,6 +19,7 @@ error_reporting(E_ALL);
 
 require_once 'config/db.php';
 require_once 'includes/Database.php';
+require_once 'includes/Translator.php'; 
 
 global $lang;
 $lang = []; 
@@ -31,7 +32,6 @@ if (isset($_GET['lang']) && !empty($_GET['lang'])) {
 }
 
 $langFile = BASE_PATH . "/lang/{$langCode}.php";
-
 if (!file_exists($langFile)) {
     $langFile = BASE_PATH . "/lang/es.php";
 }
@@ -39,6 +39,10 @@ if (!file_exists($langFile)) {
 $loadedData = require_once $langFile;
 if (is_array($loadedData)) {
     $lang = $loadedData;
+}
+
+if (!defined('CURRENT_LANG')) {
+    define('CURRENT_LANG', $langCode);
 }
 
 require_once 'includes/Router.php';

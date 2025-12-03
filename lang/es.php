@@ -110,11 +110,14 @@ return [
     'news_gallery' => 'Galería de Fotos',
     'news_back' => 'Volver a Noticias',
     'news_recent' => 'Recientes',
+    'news_empty' => 'No hay noticias recientes para mostrar en este momento.',
+    
     
     // --- GALERIA PREVIEW ---
     'gallery_title' => 'Galería Destacada',
     'gallery_desc' => 'Momentos inolvidables en el escenario y detrás de cámaras.',
     'gallery_btn' => 'Ver Galería Completa',
+    'gallery_empty' => 'Nuestra galería se está actualizando.',
     
     // --- SECCIÓN FOOTER ---
     'footer_desc' => 'Fundación Banda de Baranoa.<br>Transformando vidas a través de la música y la cultura desde 1995.',

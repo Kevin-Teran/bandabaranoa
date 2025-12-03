@@ -12,38 +12,64 @@
 $db = Database::getInstance();
 global $lang;
 
-// 1. Validar ID
+// 1. Detectar Identificador (Slug o ID)
+$slug = $_GET['slug'] ?? null;
 $id = $_GET['id'] ?? null;
-if (!$id) {
-    echo "<script>window.location.href='index.php?page=eventos';</script>";
-    exit;
+$evt = false;
+
+// 2. Buscar Evento
+if ($slug) {
+    $evt = $db->fetchOne("SELECT * FROM events WHERE slug = :s AND status = 'published'", [':s' => $slug]);
+} elseif ($id) {
+    $evt = $db->fetchOne("SELECT * FROM events WHERE id = :id AND status = 'published'", [':id' => $id]);
 }
 
-// 2. Obtener Evento
-$evt = $db->fetchOne("SELECT * FROM events WHERE id = :id AND status = 'published'", [':id' => $id]);
-
+// 3. Validación y Redirección Segura
 if (!$evt) {
-    echo "<script>window.location.href='index.php?page=eventos';</script>";
+    // Usamos Router::url para asegurar que la redirección vaya a la raíz correcta
+    // Evita el error "bandabaranoa/evento/index.php"
+    $redirectUrl = class_exists('Router') ? Router::url('eventos') : 'index.php?page=eventos';
+    
+    echo "<script>window.location.href='$redirectUrl';</script>";
     exit;
 }
 
-// 3. Preparar Datos
-$img = !empty($evt['image_path']) ? BASE_URL . '/' . $evt['image_path'] : BASE_URL . '/assets/img/default-event.jpg';
+// 4. Preparar Datos
+// Imagen Inteligente
+$defaultImg = 'assets/img/default-event.jpg';
+$imgRaw = !empty($evt['image_path']) ? $evt['image_path'] : $defaultImg;
+
+if (strpos($imgRaw, 'http') === 0) {
+    $img = $imgRaw;
+} elseif (strpos($imgRaw, 'assets/') === 0) {
+    $img = Router::url($imgRaw);
+} else {
+    $img = Router::asset($imgRaw);
+}
+
 $titulo = $evt['title'];
 $desc = $evt['description'];
 $lugar = $evt['location'];
 $inicio = strtotime($evt['start_date']);
-// Si no hay fecha fin, asumimos 2 horas de duración para el calendario
 $fin = !empty($evt['end_date']) ? strtotime($evt['end_date']) : $inicio + 7200; 
+
+// Traducción Dinámica del Título
+if (defined('CURRENT_LANG') && CURRENT_LANG !== 'es' && class_exists('Translator')) {
+    $tituloTrad = Translator::translate($titulo, CURRENT_LANG);
+    if (!empty($tituloTrad)) $titulo = $tituloTrad;
+    
+    // Opcional: Traducir descripción
+    // $desc = Translator::translate($desc, CURRENT_LANG);
+}
 
 // Formatos Visuales
 $dia = date('d', $inicio);
-$mes = date('M', $inicio); // Ene, Feb...
+$mes = date('M', $inicio);
 $hora = date('h:i A', $inicio);
-$fechaTexto = date('l, d \d\e F \d\e Y', $inicio);
+// Formato de fecha localizado manual o simple
+$fechaTexto = date('l, d F Y', $inicio);
 
-// 4. Generar Link Inteligente de Google Calendar
-// Formato fechas: YYYYMMDDTHHMMSS (Local time) o con Z para UTC. Usaremos formato simple para compatibilidad.
+// 5. Link Google Calendar
 $gStart = date('Ymd\THis', $inicio); 
 $gEnd = date('Ymd\THis', $fin);
 
@@ -59,23 +85,23 @@ $gLink .= "&sf=true&output=xml";
     /* Estilos Base */
     .nav-spacer { height: 100px; background: #fff; }
     
-    /* Header con Imagen Oscurecida para que el texto Blanco resalte */
+    /* Header con Imagen Oscurecida */
     .event-header-bg {
         background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('<?php echo $img; ?>');
         background-size: cover;
         background-position: center;
-        padding: 100px 0 140px 0; /* Extra padding abajo para la caja flotante */
+        padding: 100px 0 140px 0;
         color: white;
         position: relative;
     }
 
-    /* Caja Flotante de Info Clave */
+    /* Caja Flotante */
     .info-box {
         background: #fff;
         border-radius: 15px;
         box-shadow: 0 15px 40px rgba(0,0,0,0.15);
         padding: 30px;
-        margin-top: -60px; /* Sube sobre el header */
+        margin-top: -60px;
         position: relative;
         z-index: 10;
         border: 1px solid #eee;
@@ -93,7 +119,6 @@ $gLink .= "&sf=true&output=xml";
         border: 1px solid #ddd;
     }
 
-    /* Tipografía de Alto Contraste */
     .text-pure-black { color: #000000 !important; }
     .text-dark-gray { color: #333333 !important; }
     
@@ -108,8 +133,10 @@ $gLink .= "&sf=true&output=xml";
 
 <section class="event-header-bg text-center">
     <div class="container">
-        <span class="badge bg-danger px-3 py-2 mb-3 text-uppercase fw-bold" style="letter-spacing: 1px;">Próximo Evento</span>
-        <h1 class="display-4 fw-bold text-white mb-3"><?php echo $titulo; ?></h1>
+        <span class="badge bg-danger px-3 py-2 mb-3 text-uppercase fw-bold" style="letter-spacing: 1px;">
+            <?= $lang['events_badge'] ?? 'Evento' ?>
+        </span>
+        <h1 class="display-4 fw-bold text-white mb-3"><?php echo htmlspecialchars($titulo); ?></h1>
         <p class="fs-4 opacity-90 text-white">
             <i class="fa-regular fa-calendar me-2"></i> <?php echo $fechaTexto; ?>
         </p>
@@ -122,6 +149,7 @@ $gLink .= "&sf=true&output=xml";
             
             <div class="col-lg-8">
                 
+                <!-- Caja Flotante de Info -->
                 <div class="info-box d-flex flex-wrap align-items-center justify-content-between gap-4">
                     
                     <div class="d-flex align-items-center">
@@ -167,6 +195,7 @@ $gLink .= "&sf=true&output=xml";
 
             </div>
 
+            <!-- Sidebar Lateral -->
             <div class="col-lg-4 mt-5 mt-lg-0">
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white border">
                     <h5 class="fw-bold text-pure-black mb-4 border-bottom pb-3">Resumen</h5>
@@ -197,7 +226,7 @@ $gLink .= "&sf=true&output=xml";
                 </div>
 
                 <div class="mt-4 text-center">
-                    <a href="index.php?page=eventos" class="btn btn-link text-dark text-decoration-none fw-bold">
+                    <a href="<?= Router::url('eventos') ?>" class="btn btn-link text-dark text-decoration-none fw-bold">
                         <i class="fa-solid fa-arrow-left me-2"></i> Volver a la Agenda
                     </a>
                 </div>

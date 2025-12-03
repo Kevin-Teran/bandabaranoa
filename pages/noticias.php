@@ -10,127 +10,219 @@
  */
 
 $db = Database::getInstance();
-global $lang; // 1. Importante para textos fijos
+global $lang;
 
+// 1. Configuración de Paginación
 $limit = 6; 
 $p = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
 $offset = ($p - 1) * $limit;
 
-// Búsqueda
+// 2. Lógica de Búsqueda
 $search = $_GET['q'] ?? '';
-$whereSQL = "status = 'published'"; 
-$params = [];
-if (!empty($search)) {
-    $whereSQL .= " AND (title LIKE :q OR content LIKE :q)";
-    $params[':q'] = "%$search%";
-}
+$noticias = [];
+$totalNews = 0;
+$totalPages = 0;
 
-// Consultas
-$totalNews = $db->fetchOne("SELECT COUNT(*) as c FROM news WHERE $whereSQL", $params)['c'];
-$totalPages = ceil($totalNews / $limit);
-$noticias = $db->fetchAll("SELECT * FROM news WHERE $whereSQL ORDER BY featured DESC, created_at DESC LIMIT $limit OFFSET $offset", $params);
+// 3. Consulta Segura
+if ($db->isConnected()) {
+    $whereSQL = "status = 'published'"; 
+    $params = [];
+    
+    if (!empty($search)) {
+        $whereSQL .= " AND (title LIKE :q OR content LIKE :q)";
+        $params[':q'] = "%$search%";
+    }
+
+    // Contar total
+    $countQuery = $db->fetchOne("SELECT COUNT(*) as c FROM news WHERE $whereSQL", $params);
+    $totalNews = $countQuery ? $countQuery['c'] : 0;
+    
+    // Calcular páginas
+    $totalPages = ceil($totalNews / $limit);
+    
+    // Obtener noticias
+    $noticias = $db->fetchAll("SELECT * FROM news WHERE $whereSQL ORDER BY featured DESC, created_at DESC LIMIT $limit OFFSET $offset", $params);
+}
 ?>
 
 <style>
-    /* Estilos originales mantenidos */
-    .header-area { background-color: #ffffff !important; box-shadow: 0 2px 10px rgba(0,0,0,0.1) !important; position: fixed !important; width: 100%; top: 0; z-index: 999; }
-    .header-area .main-menu ul li a, .mean-container .mean-nav ul li a { color: #000000 !important; font-weight: 700 !important; opacity: 1 !important; }
-    .mean-container a.meanmenu-reveal span { background-color: #000000 !important; }
+    /* Espaciador para menú fijo */
     .nav-spacer { height: 120px; display: block; background: #fff; }
+    
+    /* Ajuste para que las tarjetas se estiren igual en todas las filas */
+    .news-card-items-3 {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .news-content {
+        display: flex;
+        flex-direction: column;
+        flex-grow: 1;
+    }
+    
+    /* Color del botón de búsqueda */
+    .btn-search {
+        background-color: #d90a2c;
+        color: white;
+    }
+    .btn-search:hover {
+        background-color: #b00823;
+        color: white;
+    }
 </style>
 
 <div class="nav-spacer"></div>
 
-<section class="news-section section-padding fix">
+<!-- Usamos las clases news-section-3 y section-padding del home para mantener espaciados -->
+<section class="news-section-3 section-padding fix">
     <div class="container">
         
+        <!-- Título -->
         <div class="section-title text-center mb-5">
-            <span class="sub-title fw-bold text-uppercase" style="color: #E63946;">
+            <span class="sub-title wow fadeInUp" style="color: #d90a2c; font-weight: 700; display: block; margin-bottom: 10px;">
                 <?php echo $lang['news_sub'] ?? 'Actualidad'; ?>
             </span>
-            <h2 class="fw-bold text-dark">
+            <h2 class="fw-bold text-dark wow fadeInUp" data-wow-delay=".2s">
                 <?php echo $lang['news_title'] ?? 'Noticias y Novedades'; ?>
             </h2>
         </div>
 
-        <div class="row justify-content-center mb-5">
-            <div class="col-md-6">
-                <form action="index.php" method="GET" class="d-flex shadow-sm rounded overflow-hidden border">
-                    <input type="hidden" name="page" value="noticias">
-                    <input type="text" name="q" class="form-control border-0 px-4 py-3" placeholder="<?php echo $lang['search_placeholder'] ?? 'Buscar...'; ?>" value="<?php echo htmlspecialchars($search); ?>">
-                    <button type="submit" class="btn px-4" style="background-color: #E63946; color: white;"><i class="fa-solid fa-search"></i></button>
+        <!-- Buscador -->
+        <div class="row justify-content-center mb-5 wow fadeInUp" data-wow-delay=".3s">
+            <div class="col-md-8 col-lg-6">
+                <form action="" method="GET" class="d-flex shadow-sm rounded overflow-hidden border">
+                    <input type="text" name="q" class="form-control border-0 px-4 py-3" 
+                           placeholder="<?php echo $lang['search_placeholder'] ?? 'Buscar noticia...'; ?>" 
+                           value="<?php echo htmlspecialchars($search); ?>">
+                    <button type="submit" class="btn btn-search px-4">
+                        <i class="fa-solid fa-search"></i>
+                    </button>
                 </form>
             </div>
         </div>
 
         <?php if (empty($noticias)): ?>
-            <div class="alert alert-light text-center p-5 border rounded">
-                <p class="mb-0 fs-5 text-muted">
-                    <?php echo $lang['news_no_posts'] ?? 'No hay noticias publicadas.'; ?>
-                </p>
+            <!-- Mensaje Vacío / Error DB -->
+            <div class="col-12 text-center p-5 wow fadeInUp">
+                <div class="alert alert-light d-inline-block border">
+                    <i class="fa-regular fa-newspaper fa-3x mb-3 text-muted opacity-50"></i>
+                    <p class="mb-0 fs-5 text-muted">
+                        <?= $db->isConnected() 
+                            ? ($lang['news_no_posts'] ?? 'No se encontraron noticias con esos criterios.') 
+                            : 'La sección de noticias no está disponible temporalmente.' 
+                        ?>
+                    </p>
+                    <?php if(!empty($search)): ?>
+                        <a href="<?= Router::url('noticias') ?>" class="btn btn-link mt-2" style="color: #d90a2c;">Ver todas</a>
+                    <?php endif; ?>
+                </div>
             </div>
         <?php else: ?>
             
-            <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-                <?php foreach ($noticias as $news): 
-                    $img = !empty($news['image_path']) ? $news['image_path'] : 'assets/img/news/default.jpg';
-                    $link = "index.php?page=noticia-detalle&slug=" . $news['slug'];
-                    $fechaDay = date('d', strtotime($news['created_at']));
-                    $fechaMonth = date('M', strtotime($news['created_at']));
-
-                    // --- TRADUCCIÓN DINÁMICA ---
-                    // 1. Preparamos el texto base (Título y Resumen)
-                    $titulo = $news['title'];
+            <!-- Grid de Noticias -->
+            <div class="row">
+                <?php 
+                $delay = 3;
+                foreach ($noticias as $news): 
+                    // 1. Fechas
+                    $day = date('d', strtotime($news['created_at']));
+                    $month = date('M', strtotime($news['created_at']));
                     
-                    // Lógica para el resumen (si no hay resumen manual, usa el contenido recortado)
-                    $resumenRaw = !empty($news['summary']) ? $news['summary'] : strip_tags(html_entity_decode($news['content']));
-                    $resumen = mb_strimwidth($resumenRaw, 0, 90, "...");
-
-                    // 2. Si NO es español, traducimos con la API
-                    if (defined('CURRENT_LANG') && CURRENT_LANG !== 'es' && class_exists('Translator')) {
-                        $titulo = Translator::translate($titulo, CURRENT_LANG);
-                        $resumen = Translator::translate($resumen, CURRENT_LANG);
+                    // 2. Enlace
+                    $link = Router::url('noticia/' . $news['slug']);
+                    
+                    // 3. Imagen Inteligente (Misma lógica del home)
+                    $defaultImg = 'img/news/news_1763672072.jpg';
+                    $imgRaw = !empty($news['image_path']) ? $news['image_path'] : $defaultImg;
+                    
+                    if (strpos($imgRaw, 'http') === 0) {
+                        $img = $imgRaw;
+                    } elseif (strpos($imgRaw, 'assets/') === 0) {
+                        $img = Router::url($imgRaw);
+                    } else {
+                        $img = Router::asset($imgRaw);
                     }
+
+                    // 4. Traducción
+                    $titulo = $news['title'];
+                    $titulo = (defined('CURRENT_LANG') && CURRENT_LANG !== 'es' && class_exists('Translator')) 
+                        ? Translator::translate($titulo, CURRENT_LANG) 
+                        : $titulo;
                 ?>
-                <div class="col">
-                    <div class="card h-100 border-0 shadow-sm" style="transition: transform 0.3s ease;" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
-                        <div class="position-relative overflow-hidden" style="height: 240px;">
-                            <a href="<?php echo $link; ?>">
-                                <img src="<?php echo $img; ?>" class="card-img-top w-100 h-100" style="object-fit: cover;" alt="<?php echo htmlspecialchars($titulo); ?>">
-                            </a>
-                            <div class="position-absolute top-0 end-0 bg-white px-3 py-2 m-3 rounded shadow-sm text-center lh-1">
-                                <span class="d-block fw-bold fs-5 text-dark"><?php echo $fechaDay; ?></span>
-                                <small class="text-uppercase fw-bold text-muted" style="font-size: 10px;"><?php echo $fechaMonth; ?></small>
+                <div class="col-xl-4 col-md-6 col-lg-6 wow fadeInUp d-flex align-items-stretch mb-4" data-wow-delay=".<?= $delay ?>s">
+                    
+                    <!-- ESTRUCTURA IDÉNTICA AL HOME (news-card-items-3 style-4) -->
+                    <div class="news-card-items-3 style-4" style="width: 100%;">
+                        <div class="news-image">
+                            <img src="<?= $img ?>" 
+                                 alt="<?= htmlspecialchars($titulo) ?>" 
+                                 style="height: 280px; object-fit: cover; width: 100%;"
+                                 onerror="this.onerror=null;this.src='<?= Router::asset($defaultImg) ?>';">
+                        </div>
+                        
+                        <div class="news-content">
+                            <ul class="post-meta">
+                                <li class="post"><?= $day ?> <span><?= $month ?></span></li>
+                                <li>
+                                    <i class="fa-regular fa-tag"></i> 
+                                    <?= $lang['nav_noticias'] ?? 'Noticia' ?>
+                                </li>
+                            </ul>
+                            
+                            <h4>
+                                <a href="<?= $link ?>"><?= htmlspecialchars($titulo) ?></a>
+                            </h4>
+                            
+                            <!-- Empujar botón al fondo -->
+                            <div class="mt-auto">
+                                <a href="<?= $link ?>" class="link-btn">
+                                    <?= $lang['btn_leer_mas'] ?? 'Leer Más' ?> 
+                                    <i class="fa-sharp fa-regular fa-arrow-right"></i>
+                                </a>
                             </div>
                         </div>
-
-                        <div class="card-body d-flex flex-column p-4">
-                            <h5 class="card-title fw-bold mb-3 lh-sm">
-                                <a href="<?php echo $link; ?>" class="text-dark text-decoration-none">
-                                    <?php echo $titulo; ?>
-                                </a>
-                            </h5>
-                            <p class="card-text text-muted mb-4" style="flex-grow: 1; font-size: 0.95rem;">
-                                <?php echo $resumen; ?>
-                            </p>
-                            
-                            <a href="<?php echo $link; ?>" class="btn w-100 rounded-pill fw-bold" style="border: 2px solid #E63946; color: #E63946; background: transparent;" onmouseover="this.style.background='#E63946'; this.style.color='white';" onmouseout="this.style.background='transparent'; this.style.color='#E63946';">
-                                <?php echo $lang['btn_leer_mas'] ?? 'Leer más'; ?> <i class="fa-solid fa-arrow-right ms-1"></i>
-                            </a>
-                        </div>
                     </div>
+                    <!-- FIN ESTRUCTURA -->
+
                 </div>
-                <?php endforeach; ?>
+                <?php 
+                $delay += 2; // Efecto cascada en animación
+                if($delay > 9) $delay = 3;
+                endforeach; 
+                ?>
             </div>
 
+            <!-- Paginación -->
             <?php if ($totalPages > 1): ?>
-            <nav class="mt-5 d-flex justify-content-center">
+            <nav class="mt-5 d-flex justify-content-center wow fadeInUp" data-wow-delay=".5s">
                 <ul class="pagination">
+                    <?php if($p > 1): ?>
+                    <li class="page-item">
+                        <a class="page-link border-0 rounded-circle mx-1 text-dark" href="?page=noticias&p=<?= $p-1 ?>&q=<?= urlencode($search) ?>">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    <?php endif; ?>
+
                     <?php for($i=1; $i<=$totalPages; $i++): ?>
-                        <li class="page-item <?php echo $p == $i ? 'active' : ''; ?>">
-                            <a class="page-link border-0 rounded-circle mx-1" style="<?php echo $p == $i ? 'background-color: #E63946; color: white;' : 'color: #333;'; ?>" href="index.php?page=noticias&p=<?php echo $i; ?>"><?php echo $i; ?></a>
+                        <li class="page-item">
+                            <a class="page-link border-0 rounded-circle mx-1" 
+                               style="<?= $p == $i ? 'background-color: #d90a2c; color: white;' : 'color: #333;' ?>" 
+                               href="?page=noticias&p=<?= $i ?>&q=<?= urlencode($search) ?>">
+                               <?= $i ?>
+                            </a>
                         </li>
                     <?php endfor; ?>
+
+                    <?php if($p < $totalPages): ?>
+                    <li class="page-item">
+                        <a class="page-link border-0 rounded-circle mx-1 text-dark" href="?page=noticias&p=<?= $p+1 ?>&q=<?= urlencode($search) ?>">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    </li>
+                    <?php endif; ?>
                 </ul>
             </nav>
             <?php endif; ?>
