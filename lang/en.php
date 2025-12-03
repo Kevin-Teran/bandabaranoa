@@ -89,7 +89,7 @@ return [
 
     // --- ACOUSTIC SHELL ---
     'concha_sub' => 'WORLD-CLASS STAGE',
-    'concha_title' => 'Acoustic Shell "La Majestuosa"',
+    'concha_title' => 'Acoustic Shell "The Majestic"',
     'concha_stat1' => 'Spectators',
     'concha_stat2' => 'Artists on Stage',
     'concha_stat3' => 'Lights & Sound',

@@ -9,36 +9,38 @@
  * @copyright Banda de Baranoa 2025
  */
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
-// 1. Configuración de errores
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-// 2. Cargar núcleo
 require_once 'config/db.php';
 require_once 'includes/Database.php';
 
-// 3. Sistema de Idiomas (Básico para que no falle header.php)
-// Se define global para que esté disponible en las vistas
 global $lang;
-$langCode = $_GET['lang'] ?? $_SESSION['lang'] ?? 'es';
-$_SESSION['lang'] = $langCode;
+$lang = []; 
 
-// Cargar archivo de idioma
-$langFile = BASE_PATH . "/lang/{$langCode}.php";
-if (file_exists($langFile)) {
-    require_once $langFile;
+if (isset($_GET['lang']) && !empty($_GET['lang'])) {
+    $langCode = $_GET['lang'];
+    $_SESSION['lang'] = $langCode; 
 } else {
-    // Fallback a español si no existe
-    require_once BASE_PATH . "/lang/es.php";
+    $langCode = $_SESSION['lang'] ?? 'es';
 }
 
-// 4. Cargar y Ejecutar Router
-// (Las rutas se definen dentro de este archivo)
-require_once 'includes/Router.php';
+$langFile = BASE_PATH . "/lang/{$langCode}.php";
 
-// Disparar la aplicación
+if (!file_exists($langFile)) {
+    $langFile = BASE_PATH . "/lang/es.php";
+}
+
+$loadedData = require_once $langFile;
+if (is_array($loadedData)) {
+    $lang = $loadedData;
+}
+
+require_once 'includes/Router.php';
 Router::dispatch();
 ?>

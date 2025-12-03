@@ -22,55 +22,57 @@ if ($script_dir !== '/' && strpos($request_uri, $script_dir) === 0) {
 }
 $clean_route = trim($clean_route, '/');
 
+// Home = raíz, home o index.php
 $es_home = ($clean_route === '' || $clean_route === 'home' || $clean_route === 'index.php');
 
-if ($es_home) {
-    $clase_header = 'header-1 header-3 header-transparent';
-} else {
-    $clase_header = 'header-1 header-3 header-interno';
-}
+$clase_header = $es_home ? 'header-1 header-3 header-transparent' : 'header-1 header-3 header-interno';
 
+// Idioma
 $codigo_idioma = $_SESSION['lang'] ?? 'es';
 $label_idioma = ($codigo_idioma == 'en') ? 'EN' : 'ES';
 
+// URL Raíz limpia (sin barra final para facilitar anclas)
+$url_base = rtrim(Router::url(''), '/');
+
 /**
- * Genera la URL para cambiar idioma
+ * Helper: Genera la URL actual con el parámetro ?lang=xx
  */
 function getUrlWithLang($newLang) {
-    $current_url = $_SERVER['REQUEST_URI'];
-    $parsed = parse_url($current_url);
+    $current = $_SERVER['REQUEST_URI'];
+    $parsed = parse_url($current);
     $path = $parsed['path'];
     $query = [];
     
-    if (isset($parsed['query'])) {
-        parse_str($parsed['query'], $query);
-    }
+    if (isset($parsed['query'])) parse_str($parsed['query'], $query);
     
     $query['lang'] = $newLang;
     return $path . '?' . http_build_query($query);
 }
 
-function isActive($routeToCheck, $currentRoute) {
-    if ($routeToCheck === '' && ($currentRoute === '' || $currentRoute === 'home')) return 'active';
-    if ($routeToCheck !== '' && strpos($currentRoute, $routeToCheck) === 0) return 'active';
+// Helper: Active Class
+function isActive($route, $current) {
+    if ($route === '' && ($current === '' || $current === 'home')) return 'active';
+    if ($route !== '' && strpos($current, $route) === 0) return 'active';
     return '';
 }
-
-$url_inicio = Router::url(''); 
 ?>
 
+<!-- SCRIPT DE LIMPIEZA VISUAL: Elimina ?lang=xx de la barra de direcciones -->
 <script>
-    if (window.history.replaceState) {
-        const url = new URL(window.location.href);
-        if (url.searchParams.has('lang')) {
-            url.searchParams.delete('lang');
-            window.history.replaceState(null, '', url.toString());
+    document.addEventListener("DOMContentLoaded", function() {
+        if (window.history.replaceState) {
+            const url = new URL(window.location.href);
+            // Solo si existe el parámetro 'lang', lo borramos para que se vea limpio
+            if (url.searchParams.has('lang')) {
+                url.searchParams.delete('lang');
+                window.history.replaceState(null, '', url.toString());
+            }
         }
-    }
+    });
 </script>
 
 <style>
-    /* Estilos Header Interno (Fondo Blanco) */
+    /* Estilos Header */
     header.header-interno {
         background-color: #ffffff !important;
         box-shadow: 0 2px 15px rgba(0,0,0,0.1) !important;
@@ -81,55 +83,30 @@ $url_inicio = Router::url('');
         width: 100% !important;
         z-index: 9999 !important;
     }
-    
     header.header-interno .main-menu ul li a,
     header.header-interno .lang-btn,
-    header.header-interno .sidebar__toggle i {
-        color: #000000 !important;
-        font-weight: 700 !important;
-    }
-
-    /* Logo Switch */
+    header.header-interno .sidebar__toggle i { color: #000000 !important; font-weight: 700 !important; }
     header.header-interno .logo .header-logo { display: block !important; }
     header.header-interno .logo .header-logo-2 { display: none !important; }
-    
-    header.header-interno .theme-btn {
-        background-color: #d90a2c !important;
-        color: #ffffff !important;
-        border-color: #d90a2c !important;
-    }
+    header.header-interno .theme-btn { background-color: #d90a2c !important; color: #ffffff !important; border-color: #d90a2c !important; }
 
-    /* Estilos Header Home (Transparente inicial) */
-    header.header-transparent:not(.sticky) {
-        background-color: transparent !important;
-        box-shadow: none !important;
-    }
+    header.header-transparent:not(.sticky) { background-color: transparent !important; box-shadow: none !important; }
     header.header-transparent:not(.sticky) .main-menu ul li a,
     header.header-transparent:not(.sticky) .lang-btn,
-    header.header-transparent:not(.sticky) .sidebar__toggle i {
-        color: #ffffff !important;
-    }
+    header.header-transparent:not(.sticky) .sidebar__toggle i { color: #ffffff !important; }
     header.header-transparent:not(.sticky) .logo .header-logo { display: none !important; }
     header.header-transparent:not(.sticky) .logo .header-logo-2 { display: block !important; }
 
-    /* Estilos Header Home (Sticky al bajar) */
-    header.header-transparent.sticky {
-        background-color: #ffffff !important;
-        box-shadow: 0 2px 15px rgba(0,0,0,0.1) !important;
-    }
+    header.header-transparent.sticky { background-color: #ffffff !important; box-shadow: 0 2px 15px rgba(0,0,0,0.1) !important; }
     header.header-transparent.sticky .main-menu ul li a,
     header.header-transparent.sticky .lang-btn,
-    header.header-transparent.sticky .sidebar__toggle i {
-        color: #000000 !important;
-    }
+    header.header-transparent.sticky .sidebar__toggle i { color: #000000 !important; }
     header.header-transparent.sticky .logo .header-logo { display: block !important; }
     header.header-transparent.sticky .logo .header-logo-2 { display: none !important; }
 
-    /* Menú Móvil */
     .mean-container .mean-nav { background-color: #ffffff !important; }
     .mean-container .mean-nav ul li a { color: #333 !important; border-top: 1px solid #eee !important; }
     
-    /* Selector Idioma */
     .lang-selector { position: relative; margin-right: 15px; display: inline-block; }
     .lang-btn { background: transparent; border: none; font-weight: 700; font-size: 14px; cursor: pointer; text-transform: uppercase; }
     .lang-menu { display: none; position: absolute; top: 100%; right: 0; background: #fff; box-shadow: 0 5px 15px rgba(0,0,0,0.1); min-width: 120px; z-index: 1000; }
@@ -137,7 +114,6 @@ $url_inicio = Router::url('');
     .lang-menu a { display: block; padding: 8px 15px; color: #333 !important; font-size: 13px; text-decoration: none; }
     .lang-menu a:hover { background: #f9f9f9; color: #d90a2c !important; }
 
-    /* Active State */
     .main-menu ul li.active > a { color: #d90a2c !important; }
 
     @media (max-width: 1199px) {
@@ -152,7 +128,7 @@ $url_inicio = Router::url('');
             <div class="offcanvas__content">
                 <div class="offcanvas__top mb-5 d-flex justify-content-between align-items-center">
                     <div class="offcanvas__logo">
-                        <a href="<?= $url_inicio ?>">
+                        <a href="<?= $url_base ?>">
                             <img src="<?= Router::asset('img/logo/black-logo.png') ?>" alt="logo-img">
                         </a>
                     </div>
@@ -161,42 +137,14 @@ $url_inicio = Router::url('');
                     </div>
                 </div>
                 <div class="mobile-menu fix mb-3"></div>
-                
                 <div class="offcanvas__contact">
                     <h4><?= $lang['nav_contacto'] ?? 'Contacto' ?></h4>
                     <ul>
                         <li class="d-flex align-items-center">
-                            <div class="offcanvas__contact-icon">
-                                <i class="fal fa-map-marker-alt"></i>
-                            </div>
-                            <div class="offcanvas__contact-text">
-                                <a target="_blank" href="#"><?= $lang['contact_address'] ?? 'Baranoa, Atlántico' ?></a>
-                            </div>
-                        </li>
-                        <li class="d-flex align-items-center">
-                            <div class="offcanvas__contact-icon mr-15">
-                                <i class="far fa-phone"></i>
-                            </div>
-                            <div class="offcanvas__contact-text">
-                                <a href="tel:<?= $lang['header_telefono'] ?? '+57' ?>">
-                                    <?= $lang['header_telefono'] ?? '+57' ?>
-                                </a>
-                            </div>
+                            <div class="offcanvas__contact-icon"><i class="fal fa-map-marker-alt"></i></div>
+                            <div class="offcanvas__contact-text"><a href="#"><?= $lang['contact_address'] ?? 'Baranoa, Atlántico' ?></a></div>
                         </li>
                     </ul>
-                    
-                    <div class="mt-4">
-                        <a href="https://wa.me/<?= urlencode($lang['header_telefono'] ?? '') ?>" target="_blank" class="btn btn-success w-100 py-3 rounded fw-bold">
-                            <i class="fab fa-whatsapp me-2"></i> WhatsApp
-                        </a>
-                    </div>
-                    
-                    <div class="social-icon d-flex align-items-center mt-4">
-                        <a href="https://www.facebook.com/bandadebaranoa1" target="_blank"><i class="fab fa-facebook-f"></i></a>
-                        <a href="https://x.com/bandadebaranoa1" target="_blank"><i class="fab fa-twitter"></i></a>
-                        <a href="https://www.youtube.com/@BandadeBaranoaOficial" target="_blank"><i class="fab fa-youtube"></i></a>
-                        <a href="https://www.instagram.com/labandadebaranoa/" target="_blank"><i class="fab fa-instagram"></i></a>
-                    </div>
                 </div>
             </div>
         </div>
@@ -208,11 +156,13 @@ $url_inicio = Router::url('');
     <div class="container-fluid">
         <div class="mega-menu-wrapper">
             <div class="header-main">
+                
                 <div class="logo">
-                    <a href="<?= $url_inicio ?>" class="header-logo">
+                    <!-- Enlace directo a raíz (evita /home) -->
+                    <a href="<?= $url_base ?>" class="header-logo">
                         <img src="<?= Router::asset('img/logo/black-logo.png') ?>" alt="logo-black">
                     </a>
-                    <a href="<?= $url_inicio ?>" class="header-logo-2">
+                    <a href="<?= $url_base ?>" class="header-logo-2">
                         <img src="<?= Router::asset('img/logo/white-logo.png') ?>" alt="logo-white">
                     </a>
                 </div>
@@ -222,20 +172,21 @@ $url_inicio = Router::url('');
                         <nav id="mobile-menu">
                             <ul>
                                 <li class="<?= isActive('', $clean_route) ?>">
-                                    <a href="<?= $url_inicio ?>"><?= $lang['nav_inicio'] ?? 'Inicio' ?></a>
+                                    <a href="<?= $url_base ?>"><?= $lang['nav_inicio'] ?? 'Inicio' ?></a>
                                 </li>
+                                <!-- ANCLAS: Si es home usa solo #, si no usa /# para recargar -->
                                 <li>
-                                    <a href="<?= $es_home ? '#quienes-somos' : $url_inicio . '#quienes-somos' ?>">
+                                    <a href="<?= $es_home ? '#quienes-somos' : $url_base . '/#quienes-somos' ?>">
                                         <?= $lang['nav_quienes_somos'] ?? 'Nosotros' ?>
                                     </a>
                                 </li>
                                 <li>
-                                    <a href="<?= $es_home ? '#experiencias' : $url_inicio . '#experiencias' ?>">
+                                    <a href="<?= $es_home ? '#experiencias' : $url_base . '/#experiencias' ?>">
                                         <?= $lang['nav_experiencias'] ?? 'Experiencias' ?>
                                     </a>
                                 </li>
                                 <li>
-                                    <a href="<?= $es_home ? '#corporativo' : $url_inicio . '#corporativo' ?>">
+                                    <a href="<?= $es_home ? '#corporativo' : $url_base . '/#corporativo' ?>">
                                         <?= $lang['nav_corporativo'] ?? 'Corporativo' ?>
                                     </a>
                                 </li>
@@ -254,11 +205,13 @@ $url_inicio = Router::url('');
                 </div>
                 
                 <div class="header-right d-flex justify-content-end align-items-center">
+                    
                     <div class="lang-selector">
                         <button class="lang-btn">
                             <i class="fa-solid fa-globe"></i> <?= $label_idioma ?> <i class="fa-solid fa-angle-down"></i>
                         </button>
                         <div class="lang-menu">
+                            <!-- Enlaces de cambio de idioma -->
                             <a href="<?= getUrlWithLang('es') ?>"><span>🇪🇸</span> Español</a>
                             <a href="<?= getUrlWithLang('en') ?>"><span>🇺🇸</span> English</a>
                         </div>
