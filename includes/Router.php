@@ -2,131 +2,143 @@
 /**
  * @file Router.php
  * @route /includes/Router.php
- * @description Sistema centralizado de enrutamiento con soporte para URLs amigables
+ * @description Enrutador robusto con corrección de ruta raíz y definiciones centralizadas.
  * @author Kevin Mariano
- * @version 2.0.0
+ * @version 3.2.0
  * @since 1.0.0
  * @copyright Banda de Baranoa 2025
  */
 
 class Router {
-    
     private static $routes = [];
-    private static $current_route = null;
-    
+
     /**
-     * Inicializa el sistema de rutas
-     * @return void
+     * Registra una ruta GET
      */
-    public static function init() {
-        self::registerRoutes();
-        self::dispatch();
-    }
-    
-    /**
-     * Registra todas las rutas disponibles
-     * @return void
-     */
-    private static function registerRoutes() {
-        self::$routes = [
-            '' => 'home',
-            'home' => 'home',
-            'eventos' => 'eventos',
-            'evento-detalle' => 'evento-detalle',
-            'noticias' => 'noticias',
-            'noticia' => 'noticia-detalle',
-            'galeria' => 'galeria',
-            'contact' => 'contact',
-        ];
-    }
-    
-    /**
-     * Procesa la URL y despacha a la página correcta
-     * @return void
-     */
-    private static function dispatch() {
-        $request_uri = $_SERVER['REQUEST_URI'] ?? '/';
-        
-        $base = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');
-        $uri = substr($request_uri, strlen($base));
-        $uri = strtok($uri, '?'); 
+    public static function get($uri, $callback) {
+        // Al registrar '/', trim lo convierte en cadena vacía ""
         $uri = trim($uri, '/');
+        self::$routes['GET'][$uri] = $callback;
+    }
+
+    /**
+     * Procesa la URL actual
+     */
+    public static function dispatch() {
+        $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
         
-        $segments = $uri ? explode('/', $uri) : [];
+        // Detección automática de la carpeta raíz del proyecto
+        $scriptDir = dirname($_SERVER['SCRIPT_NAME']);
         
-        if (empty($segments)) {
-            self::$current_route = 'home';
-        } elseif (isset(self::$routes[$segments[0]])) {
-            self::$current_route = self::$routes[$segments[0]];
-            
-            if (count($segments) > 1) {
-                switch ($segments[0]) {
-                    case 'noticia':
-                        $_GET['slug'] = $segments[1];
-                        break;
-                    case 'evento-detalle':
-                        $_GET['id'] = $segments[1];
-                        break;
+        // Corrección para Windows (reemplazar \ por /)
+        $scriptDir = str_replace('\\', '/', $scriptDir);
+
+        // Si estamos en una subcarpeta, la quitamos de la URI
+        if ($scriptDir !== '/' && strpos($uri, $scriptDir) === 0) {
+            $uri = substr($uri, strlen($scriptDir));
+        }
+
+        // CORRECCIÓN APLICADA: 
+        // Solo hacemos trim. Si es la raíz, queda como "" (igual que en el registro).
+        // Eliminamos la línea que forzaba $uri = '/' para que coincidan.
+        $uri = trim($uri, '/');
+
+        $method = $_SERVER['REQUEST_METHOD'];
+
+        if (isset(self::$routes[$method])) {
+            foreach (self::$routes[$method] as $route => $callback) {
+                // Convertir :param en regex
+                $pattern = "@^" . preg_replace('/:[a-zA-Z0-9\_\-]+/', '([a-zA-Z0-9\-\_]+)', $route) . "$@D";
+                $matches = [];
+
+                if (preg_match($pattern, $uri, $matches)) {
+                    array_shift($matches); // Quitar la coincidencia completa
+                    
+                    if (is_callable($callback)) {
+                        call_user_func_array($callback, $matches);
+                    }
+                    return;
                 }
             }
-        } else {
-            self::$current_route = '404';
-            http_response_code(404);
-        }
-        
-        $_GET['page'] = self::$current_route;
-    }
-    
-    /**
-     * Obtiene la ruta actual
-     * @return string
-     */
-    public static function getCurrentRoute() {
-        return self::$current_route ?? 'home';
-    }
-    
-    /**
-     * Genera una URL limpia
-     * @param string $page Página destino
-     * @param array $params Parámetros adicionales
-     * @return string
-     */
-    public static function url($page, $params = []) {
-        $base = defined('BASE_URL') ? BASE_URL : '';
-
-        if ($page === 'home' || $page === 'index') {
-            $url = $base . '/';
-        } else {
-            $url = $base . '/' . $page;
         }
 
-        if (!empty($params)) {
-            $query = http_build_query($params);
-            $url .= '?' . $query;
+        self::render('pages/404.php', ['page_title' => 'Página no encontrada']);
+    }
+
+    /**
+     * Renderiza una vista inyectando variables globales de forma segura.
+     */
+    public static function render($viewPath, $data = []) {
+        global $db, $lang, $page_title;
+
+        if (!$db) $db = Database::getInstance();
+
+        if (isset($data['page_title'])) {
+            $page_title = $data['page_title']; 
         }
-        
-        return $url;
+
+        extract($data);
+
+        require_once BASE_PATH . '/templates/header.php';
+        require_once BASE_PATH . '/templates/navigation.php';
+
+        $fullPath = BASE_PATH . '/' . $viewPath;
+        if (file_exists($fullPath)) {
+            require_once $fullPath;
+        } else {
+            // Estilo simple para error de desarrollo
+            echo "<div style='padding:50px; text-align:center; color:red;'>";
+            echo "<h2>Error 404: Vista no encontrada</h2>";
+            echo "<p>Buscando en: " . htmlspecialchars($fullPath) . "</p>";
+            echo "</div>";
+        }
+
+        require_once BASE_PATH . '/templates/footer.php';
     }
-    
-    /**
-     * Verifica si una ruta está activa
-     * @param string $page
-     * @return bool
-     */
-    public static function isActive($page) {
-        return self::$current_route === $page;
+
+    public static function url($path = '') {
+        return BASE_URL . '/' . ltrim($path, '/');
     }
-    
-    /**
-     * Redirecciona a una página
-     * @param string $page
-     * @param int $code Código HTTP (301, 302, etc)
-     * @return void
-     */
-    public static function redirect($page, $code = 302) {
-        $url = self::url($page);
-        http_response_code($code);
-        header("Location: $url");
-        exit;
+
+    public static function asset($path = '') {
+        return BASE_URL . '/assets/' . ltrim($path, '/');
     }
 }
+
+/* -------------------------------------------------------------------------- */
+/* DEFINICIÓN DE RUTAS                         */
+/* -------------------------------------------------------------------------- */
+
+Router::get('/', function() {
+    Router::render('pages/home.php', ['page_title' => 'Inicio']);
+});
+Router::get('home', function() {
+    Router::render('pages/home.php', ['page_title' => 'Inicio']);
+});
+
+Router::get('noticias', function() {
+    Router::render('pages/noticias.php', ['page_title' => 'Noticias']);
+});
+
+Router::get('eventos', function() {
+    Router::render('pages/eventos.php', ['page_title' => 'Eventos']);
+});
+
+Router::get('galeria', function() {
+    Router::render('pages/galeria.php', ['page_title' => 'Galería Multimedia']);
+});
+
+Router::get('noticia/:slug', function($slug) {
+    $_GET['slug'] = $slug; 
+    Router::render('pages/noticia-detalle.php', ['page_title' => 'Detalle Noticia', 'slug' => $slug]);
+});
+
+Router::get('evento/:slug', function($slug) {
+    $_GET['slug'] = $slug;
+    Router::render('pages/evento-detalle.php', ['page_title' => 'Detalle Evento', 'slug' => $slug]);
+});
+
+Router::get('contacto', function() {
+    Router::render('pages/contacto.php', ['page_title' => 'Contáctanos']);
+});
+?>

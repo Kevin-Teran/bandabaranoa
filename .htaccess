@@ -1,0 +1,31 @@
+#
+# @file .htaccess
+# @route banda_de_Baranoa/.htaccess
+# @description Enrutamiento amigable para el panel de administración.
+# @author Kevin Mariano
+# @version 1.0.0
+# @since 1.0.0
+# @copyright Banda de Baranoa 2025
+#
+
+RewriteEngine On
+
+# FIX CORS: Permite la carga de fuentes web (TTF, WOFF, WOFF2) en entornos con protocolo mixto (HTTP/HTTPS)
+# Esto soluciona los errores de 'Access-Control-Allow-Origin'.
+<FilesMatch "\.(ttf|ttc|otf|eot|woff|woff2|font.css|css|js)$">
+    <IfModule mod_headers.c>
+        Header set Access-Control-Allow-Origin "*"
+    </IfModule>
+</FilesMatch>
+
+# Evitar que la reescritura afecte a archivos y directorios reales
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Regla principal del enrutador (Captura la URL limpia y la convierte a index.php?page=)
+# Ej: /experiencias -> index.php?page=experiencias
+RewriteRule ^(.+)$ index.php?page=$1 [QSA,L]
+
+# Regla para la página de inicio (La raíz del sitio)
+# Ej: http://dominio.com/ -> index.php?page=home
+RewriteRule ^$ index.php?page=home [QSA,L]

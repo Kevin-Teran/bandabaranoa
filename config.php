@@ -14,7 +14,9 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 define('BASE_PATH', __DIR__);
-define('BASE_URL', '/bandabaranoa');
+
+define('BASE_URL', '/bandabaranoa'); 
+
 define('ENVIRONMENT', 'development'); 
 define('DEFAULT_LANG', 'es');
 define('SITE_NAME', 'Banda de Baranoa');
@@ -31,7 +33,8 @@ date_default_timezone_set('America/Bogota');
 $core_modules = [
     '/includes/Language.php',
     '/includes/Translator.php',
-    '/includes/functions.php'
+    '/includes/functions.php',
+    '/includes/Router.php' 
 ];
 
 foreach ($core_modules as $module) {
@@ -53,7 +56,6 @@ if (class_exists('Language')) {
 
 /**
  * Verifica si estamos en modo desarrollo
- * @return bool
  */
 function isDevelopment() {
     return defined('ENVIRONMENT') && ENVIRONMENT === 'development';
@@ -61,17 +63,13 @@ function isDevelopment() {
 
 /**
  * Verifica si estamos en modo producción
- * @return bool
  */
 function isProduction() {
     return defined('ENVIRONMENT') && ENVIRONMENT === 'production';
 }
 
 /**
- * Obtiene una configuración del sitio
- * @param string $key Clave de configuración
- * @param mixed $default Valor por defecto
- * @return mixed
+ * Helper de configuración
  */
 function config($key, $default = null) {
     static $config = null;
@@ -113,13 +111,17 @@ if (isDevelopment()) {
     error_reporting(0);
     
     set_error_handler(function($errno, $errstr, $errfile, $errline) {
-        $message = "Error [$errno]: $errstr in $errfile on line $errline";
-        logEvent($message, 'error');
+        error_log("Error [$errno]: $errstr in $errfile on line $errline");
         
         if (!headers_sent()) {
             http_response_code(500);
-            include BASE_PATH . '/pages/500.php';
+            if(file_exists(BASE_PATH . '/pages/500.php')) {
+                include BASE_PATH . '/pages/500.php';
+            } else {
+                echo "Error interno del servidor";
+            }
             exit;
         }
     });
 }
+?>

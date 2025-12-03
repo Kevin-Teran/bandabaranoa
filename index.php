@@ -9,38 +9,36 @@
  * @copyright Banda de Baranoa 2025
  */
 
+session_start();
+
+// 1. Configuración de errores
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-require_once 'config.php';
-
+// 2. Cargar núcleo
 require_once 'config/db.php';
 require_once 'includes/Database.php';
 
-$route = $_GET['page'] ?? 'home';
-$route = rtrim($route, '/');
-$params = explode('/', $route);
-$page_name = !empty($params[0]) ? $params[0] : 'home';
+// 3. Sistema de Idiomas (Básico para que no falle header.php)
+// Se define global para que esté disponible en las vistas
+global $lang;
+$langCode = $_GET['lang'] ?? $_SESSION['lang'] ?? 'es';
+$_SESSION['lang'] = $langCode;
 
-if ($page_name === 'noticia-detalle') {
-    if (isset($params[1])) {
-        $_GET['slug'] = $params[1];
-    }
+// Cargar archivo de idioma
+$langFile = BASE_PATH . "/lang/{$langCode}.php";
+if (file_exists($langFile)) {
+    require_once $langFile;
+} else {
+    // Fallback a español si no existe
+    require_once BASE_PATH . "/lang/es.php";
 }
 
-$page_file = BASE_PATH . '/pages/' . $page_name . '.php';
+// 4. Cargar y Ejecutar Router
+// (Las rutas se definen dentro de este archivo)
+require_once 'includes/Router.php';
 
-if (!file_exists($page_file)) {
-    $page_file = BASE_PATH . '/pages/404.php';
-    $page_name = '404';
-    http_response_code(404);
-}
-
-$page_title = ucfirst(str_replace('-', ' ', $page_name));
-
-require_once BASE_PATH . '/templates/header.php';
-require_once BASE_PATH . '/templates/navigation.php';
-require_once $page_file;
-require_once BASE_PATH . '/templates/footer.php';
+// Disparar la aplicación
+Router::dispatch();
 ?>

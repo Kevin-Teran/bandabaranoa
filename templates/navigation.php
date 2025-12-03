@@ -11,8 +11,18 @@
 
 global $lang; 
 
-$page = isset($_GET['page']) ? $_GET['page'] : 'home';
-$es_home = ($page == 'home' || $page == 'index' || empty($page));
+$request_uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$script_dir = dirname($_SERVER['SCRIPT_NAME']);
+$script_dir = str_replace('\\', '/', $script_dir); 
+
+if ($script_dir !== '/' && strpos($request_uri, $script_dir) === 0) {
+    $clean_route = substr($request_uri, strlen($script_dir));
+} else {
+    $clean_route = $request_uri;
+}
+$clean_route = trim($clean_route, '/');
+
+$es_home = ($clean_route === '' || $clean_route === 'home' || $clean_route === 'index.php');
 
 if ($es_home) {
     $clase_header = 'header-1 header-3 header-transparent';
@@ -20,20 +30,47 @@ if ($es_home) {
     $clase_header = 'header-1 header-3 header-interno';
 }
 
-$codigo_idioma = defined('CURRENT_LANG') ? CURRENT_LANG : 'es';
+$codigo_idioma = $_SESSION['lang'] ?? 'es';
 $label_idioma = ($codigo_idioma == 'en') ? 'EN' : 'ES';
 
+/**
+ * Genera la URL para cambiar idioma
+ */
 function getUrlWithLang($newLang) {
-    $params = $_GET;
-    $params['lang'] = $newLang;
-    return '?' . http_build_query($params);
+    $current_url = $_SERVER['REQUEST_URI'];
+    $parsed = parse_url($current_url);
+    $path = $parsed['path'];
+    $query = [];
+    
+    if (isset($parsed['query'])) {
+        parse_str($parsed['query'], $query);
+    }
+    
+    $query['lang'] = $newLang;
+    return $path . '?' . http_build_query($query);
 }
+
+function isActive($routeToCheck, $currentRoute) {
+    if ($routeToCheck === '' && ($currentRoute === '' || $currentRoute === 'home')) return 'active';
+    if ($routeToCheck !== '' && strpos($currentRoute, $routeToCheck) === 0) return 'active';
+    return '';
+}
+
+$url_inicio = Router::url(''); 
 ?>
 
+<script>
+    if (window.history.replaceState) {
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('lang')) {
+            url.searchParams.delete('lang');
+            window.history.replaceState(null, '', url.toString());
+        }
+    }
+</script>
+
 <style>
-    /* ==============================================
-       HEADER EN PÁGINAS INTERNAS (SIEMPRE VISIBLE)
-       ============================================== */
+    /* Estilos Header Interno (Fondo Blanco) */
     header.header-interno {
         background-color: #ffffff !important;
         box-shadow: 0 2px 15px rgba(0,0,0,0.1) !important;
@@ -43,226 +80,69 @@ function getUrlWithLang($newLang) {
         right: 0 !important;
         width: 100% !important;
         z-index: 9999 !important;
-        transform: translateY(0) !important;
-        opacity: 1 !important;
-        visibility: visible !important;
     }
     
-    /* Texto negro en páginas internas */
-    header.header-interno .main-menu ul li a {
-        color: #000000 !important;
-        font-weight: 700 !important;
-    }
-    
-    header.header-interno .lang-btn {
-        color: #000000 !important;
-        font-weight: 700 !important;
-    }
-    
+    header.header-interno .main-menu ul li a,
+    header.header-interno .lang-btn,
     header.header-interno .sidebar__toggle i {
         color: #000000 !important;
+        font-weight: 700 !important;
     }
+
+    /* Logo Switch */
+    header.header-interno .logo .header-logo { display: block !important; }
+    header.header-interno .logo .header-logo-2 { display: none !important; }
     
-    /* Logo negro visible en internas */
-    header.header-interno .logo .header-logo { 
-        display: block !important; 
-    }
-    header.header-interno .logo .header-logo-2 { 
-        display: none !important; 
-    }
-    
-    /* Botón WhatsApp rojo */
     header.header-interno .theme-btn {
         background-color: #d90a2c !important;
         color: #ffffff !important;
         border-color: #d90a2c !important;
     }
 
-    /* ==============================================
-       HEADER EN HOME (TRANSPARENTE -> FIJO)
-       ============================================== */
-    
-    /* Home sin scroll: transparente */
+    /* Estilos Header Home (Transparente inicial) */
     header.header-transparent:not(.sticky) {
         background-color: transparent !important;
         box-shadow: none !important;
     }
-    
     header.header-transparent:not(.sticky) .main-menu ul li a,
     header.header-transparent:not(.sticky) .lang-btn,
     header.header-transparent:not(.sticky) .sidebar__toggle i {
         color: #ffffff !important;
     }
-    
-    /* Logo blanco en home transparente */
-    header.header-transparent:not(.sticky) .logo .header-logo { 
-        display: none !important; 
-    }
-    header.header-transparent:not(.sticky) .logo .header-logo-2 { 
-        display: block !important; 
-    }
+    header.header-transparent:not(.sticky) .logo .header-logo { display: none !important; }
+    header.header-transparent:not(.sticky) .logo .header-logo-2 { display: block !important; }
 
-    /* Home con scroll: fondo blanco */
+    /* Estilos Header Home (Sticky al bajar) */
     header.header-transparent.sticky {
         background-color: #ffffff !important;
         box-shadow: 0 2px 15px rgba(0,0,0,0.1) !important;
     }
-    
     header.header-transparent.sticky .main-menu ul li a,
     header.header-transparent.sticky .lang-btn,
     header.header-transparent.sticky .sidebar__toggle i {
         color: #000000 !important;
-        font-weight: 700 !important;
     }
-    
-    /* Logo negro en home con scroll */
-    header.header-transparent.sticky .logo .header-logo { 
-        display: block !important; 
-    }
-    header.header-transparent.sticky .logo .header-logo-2 { 
-        display: none !important; 
-    }
+    header.header-transparent.sticky .logo .header-logo { display: block !important; }
+    header.header-transparent.sticky .logo .header-logo-2 { display: none !important; }
 
-    /* ==============================================
-       MENÚ MÓVIL (MEAN MENU)
-       ============================================== */
+    /* Menú Móvil */
+    .mean-container .mean-nav { background-color: #ffffff !important; }
+    .mean-container .mean-nav ul li a { color: #333 !important; border-top: 1px solid #eee !important; }
     
-    /* Home transparente - menú oscuro */
-    header.header-transparent:not(.sticky) .mean-container a.meanmenu-reveal {
-        color: #ffffff !important;
-        border: 1px solid rgba(255,255,255,0.5) !important;
-    }
-    
-    header.header-transparent:not(.sticky) .mean-container a.meanmenu-reveal span {
-        background-color: #ffffff !important;
-    }
-    
-    header.header-transparent:not(.sticky) .mean-container .mean-nav {
-        background-color: rgba(0,0,0,0.95) !important;
-    }
-    
-    header.header-transparent:not(.sticky) .mean-container .mean-nav ul li a {
-        color: #ffffff !important;
-        border-top: 1px solid rgba(255,255,255,0.1) !important;
-    }
+    /* Selector Idioma */
+    .lang-selector { position: relative; margin-right: 15px; display: inline-block; }
+    .lang-btn { background: transparent; border: none; font-weight: 700; font-size: 14px; cursor: pointer; text-transform: uppercase; }
+    .lang-menu { display: none; position: absolute; top: 100%; right: 0; background: #fff; box-shadow: 0 5px 15px rgba(0,0,0,0.1); min-width: 120px; z-index: 1000; }
+    .lang-selector:hover .lang-menu { display: block; }
+    .lang-menu a { display: block; padding: 8px 15px; color: #333 !important; font-size: 13px; text-decoration: none; }
+    .lang-menu a:hover { background: #f9f9f9; color: #d90a2c !important; }
 
-    /* Home con scroll y páginas internas - menú claro */
-    header.header-transparent.sticky .mean-container a.meanmenu-reveal,
-    header.header-interno .mean-container a.meanmenu-reveal {
-        color: #000000 !important;
-        border: 1px solid #000000 !important;
-    }
-    
-    header.header-transparent.sticky .mean-container a.meanmenu-reveal span,
-    header.header-interno .mean-container a.meanmenu-reveal span {
-        background-color: #000000 !important;
-    }
-    
-    header.header-transparent.sticky .mean-container .mean-nav,
-    header.header-interno .mean-container .mean-nav {
-        background-color: #ffffff !important;
-    }
-    
-    header.header-transparent.sticky .mean-container .mean-nav ul li a,
-    header.header-interno .mean-container .mean-nav ul li a {
-        color: #000000 !important;
-        font-weight: 700 !important;
-        border-top: 1px solid #f0f0f0 !important;
-    }
+    /* Active State */
+    .main-menu ul li.active > a { color: #d90a2c !important; }
 
-    /* ==============================================
-       SELECTOR DE IDIOMA
-       ============================================== */
-    .lang-selector { 
-        position: relative; 
-        margin-right: 15px; 
-        display: inline-block; 
-    }
-    
-    .lang-btn {
-        background: transparent; 
-        border: none; 
-        font-weight: 700; 
-        font-size: 14px; 
-        cursor: pointer; 
-        padding: 5px 0; 
-        display: flex; 
-        align-items: center; 
-        gap: 5px;
-        text-transform: uppercase;
-    }
-    
-    .lang-menu {
-        display: none; 
-        position: absolute; 
-        top: 100%; 
-        right: 0;
-        background: #fff; 
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        min-width: 120px; 
-        border-radius: 5px; 
-        padding: 10px 0; 
-        z-index: 1000;
-    }
-    
-    .lang-selector:hover .lang-menu { 
-        display: block; 
-    }
-    
-    .lang-menu a { 
-        display: block; 
-        padding: 8px 15px; 
-        color: #333 !important; 
-        font-size: 13px; 
-        text-decoration: none; 
-        transition: 0.3s;
-    }
-    
-    .lang-menu a:hover { 
-        background: #f9f9f9; 
-        color: #d90a2c !important; 
-        padding-left: 20px; 
-    }
-    
-    .lang-menu img { 
-        margin-right: 8px; 
-        vertical-align: middle; 
-    }
-    
-    /* Links activos */
-    .main-menu ul li.active > a {
-        color: var(--color-theme) !important;
-    }
-    
-    /* ==============================================
-       RESPONSIVE
-       ============================================== */
     @media (max-width: 1199px) {
-        /* Asegurar header visible en móvil */
-        header.header-interno {
-            display: block !important;
-            position: fixed !important;
-            top: 0 !important;
-            width: 100% !important;
-        }
-        
-        /* Ocultar WhatsApp en móvil */
-        .header-right .theme-btn {
-            display: none !important;
-        }
-        
-        /* Mostrar selector idioma en móvil */
-        .lang-selector {
-            display: inline-block !important;
-            margin-right: 10px;
-        }
-    }
-
-    @media (min-width: 1200px) {
-        /* Mostrar WhatsApp en desktop */
-        .header-right .theme-btn {
-            display: inline-block !important;
-        }
+        header.header-interno { position: fixed !important; }
+        .header-right .theme-btn { display: none !important; }
     }
 </style>
 
@@ -272,8 +152,8 @@ function getUrlWithLang($newLang) {
             <div class="offcanvas__content">
                 <div class="offcanvas__top mb-5 d-flex justify-content-between align-items-center">
                     <div class="offcanvas__logo">
-                        <a href="<?php echo BASE_URL; ?>/">
-                            <img src="<?php echo BASE_URL; ?>/assets/img/logo/black-logo.png" alt="logo-img">
+                        <a href="<?= $url_inicio ?>">
+                            <img src="<?= Router::asset('img/logo/black-logo.png') ?>" alt="logo-img">
                         </a>
                     </div>
                     <div class="offcanvas__close">
@@ -281,15 +161,16 @@ function getUrlWithLang($newLang) {
                     </div>
                 </div>
                 <div class="mobile-menu fix mb-3"></div>
+                
                 <div class="offcanvas__contact">
-                    <h4><?php echo $lang['nav_contacto'] ?? 'Contacto'; ?></h4>
+                    <h4><?= $lang['nav_contacto'] ?? 'Contacto' ?></h4>
                     <ul>
                         <li class="d-flex align-items-center">
                             <div class="offcanvas__contact-icon">
                                 <i class="fal fa-map-marker-alt"></i>
                             </div>
                             <div class="offcanvas__contact-text">
-                                <a target="_blank" href="#"><?php echo $lang['contact_address'] ?? 'Baranoa, Atlántico, Colombia'; ?></a>
+                                <a target="_blank" href="#"><?= $lang['contact_address'] ?? 'Baranoa, Atlántico' ?></a>
                             </div>
                         </li>
                         <li class="d-flex align-items-center">
@@ -297,15 +178,15 @@ function getUrlWithLang($newLang) {
                                 <i class="far fa-phone"></i>
                             </div>
                             <div class="offcanvas__contact-text">
-                                <a href="tel:<?php echo $lang['header_telefono'] ?? '+57'; ?>">
-                                    <?php echo $lang['header_telefono'] ?? '+57'; ?>
+                                <a href="tel:<?= $lang['header_telefono'] ?? '+57' ?>">
+                                    <?= $lang['header_telefono'] ?? '+57' ?>
                                 </a>
                             </div>
                         </li>
                     </ul>
                     
                     <div class="mt-4">
-                        <a href="https://wa.me/<?php echo urlencode($lang['header_telefono'] ?? '+57'); ?>" target="_blank" class="btn btn-success w-100 py-3 rounded fw-bold">
+                        <a href="https://wa.me/<?= urlencode($lang['header_telefono'] ?? '') ?>" target="_blank" class="btn btn-success w-100 py-3 rounded fw-bold">
                             <i class="fab fa-whatsapp me-2"></i> WhatsApp
                         </a>
                     </div>
@@ -323,17 +204,16 @@ function getUrlWithLang($newLang) {
 </div>
 <div class="offcanvas__overlay"></div>
 
-<header id="header-sticky" class="<?php echo $clase_header; ?>">
+<header id="header-sticky" class="<?= $clase_header ?>">
     <div class="container-fluid">
         <div class="mega-menu-wrapper">
             <div class="header-main">
-                
                 <div class="logo">
-                    <a href="<?php echo BASE_URL; ?>/" class="header-logo">
-                        <img src="<?php echo BASE_URL; ?>/assets/img/logo/black-logo.png" alt="logo-black">
+                    <a href="<?= $url_inicio ?>" class="header-logo">
+                        <img src="<?= Router::asset('img/logo/black-logo.png') ?>" alt="logo-black">
                     </a>
-                    <a href="<?php echo BASE_URL; ?>/" class="header-logo-2">
-                        <img src="<?php echo BASE_URL; ?>/assets/img/logo/white-logo.png" alt="logo-white">
+                    <a href="<?= $url_inicio ?>" class="header-logo-2">
+                        <img src="<?= Router::asset('img/logo/white-logo.png') ?>" alt="logo-white">
                     </a>
                 </div>
                 
@@ -341,26 +221,32 @@ function getUrlWithLang($newLang) {
                     <div class="main-menu">
                         <nav id="mobile-menu">
                             <ul>
-                                <li class="<?php echo ($page == 'home') ? 'active' : ''; ?>">
-                                    <a href="<?php echo BASE_URL; ?>/"><?php echo $lang['nav_inicio'] ?? 'Inicio'; ?></a>
+                                <li class="<?= isActive('', $clean_route) ?>">
+                                    <a href="<?= $url_inicio ?>"><?= $lang['nav_inicio'] ?? 'Inicio' ?></a>
                                 </li>
                                 <li>
-                                    <a href="<?php echo BASE_URL; ?>/#quienes-somos"><?php echo $lang['nav_quienes_somos'] ?? 'Nosotros'; ?></a>
+                                    <a href="<?= $es_home ? '#quienes-somos' : $url_inicio . '#quienes-somos' ?>">
+                                        <?= $lang['nav_quienes_somos'] ?? 'Nosotros' ?>
+                                    </a>
                                 </li>
                                 <li>
-                                    <a href="<?php echo BASE_URL; ?>/#experiencias"><?php echo $lang['nav_experiencias'] ?? 'Experiencias'; ?></a>
+                                    <a href="<?= $es_home ? '#experiencias' : $url_inicio . '#experiencias' ?>">
+                                        <?= $lang['nav_experiencias'] ?? 'Experiencias' ?>
+                                    </a>
                                 </li>
                                 <li>
-                                    <a href="<?php echo BASE_URL; ?>/#corporativo"><?php echo $lang['nav_corporativo'] ?? 'Corporativo'; ?></a>
+                                    <a href="<?= $es_home ? '#corporativo' : $url_inicio . '#corporativo' ?>">
+                                        <?= $lang['nav_corporativo'] ?? 'Corporativo' ?>
+                                    </a>
                                 </li>
-                                <li class="<?php echo ($page == 'eventos') ? 'active' : ''; ?>">
-                                    <a href="<?php echo BASE_URL; ?>/eventos"><?php echo $lang['nav_eventos'] ?? 'Eventos'; ?></a>
+                                <li class="<?= isActive('eventos', $clean_route) ?>">
+                                    <a href="<?= Router::url('eventos') ?>"><?= $lang['nav_eventos'] ?? 'Eventos' ?></a>
                                 </li>
-                                <li class="<?php echo ($page == 'noticias') ? 'active' : ''; ?>">
-                                    <a href="<?php echo BASE_URL; ?>/noticias"><?php echo $lang['nav_noticias'] ?? 'Noticias'; ?></a>
+                                <li class="<?= isActive('noticias', $clean_route) ?>">
+                                    <a href="<?= Router::url('noticias') ?>"><?= $lang['nav_noticias'] ?? 'Noticias' ?></a>
                                 </li>
-                                <li class="<?php echo ($page == 'galeria') ? 'active' : ''; ?>">
-                                    <a href="<?php echo BASE_URL; ?>/galeria"><?php echo $lang['nav_galeria'] ?? 'Galería'; ?></a>
+                                <li class="<?= isActive('galeria', $clean_route) ?>">
+                                    <a href="<?= Router::url('galeria') ?>"><?= $lang['nav_galeria'] ?? 'Galería' ?></a>
                                 </li>
                             </ul>
                         </nav>
@@ -368,22 +254,17 @@ function getUrlWithLang($newLang) {
                 </div>
                 
                 <div class="header-right d-flex justify-content-end align-items-center">
-                    
                     <div class="lang-selector">
                         <button class="lang-btn">
-                            <i class="fa-solid fa-globe"></i> <?php echo $label_idioma; ?> <i class="fa-solid fa-angle-down"></i>
+                            <i class="fa-solid fa-globe"></i> <?= $label_idioma ?> <i class="fa-solid fa-angle-down"></i>
                         </button>
                         <div class="lang-menu">
-                            <a href="<?php echo getUrlWithLang('es'); ?>">
-                                <span>🇪🇸</span>  Español
-                            </a>
-                            <a href="<?php echo getUrlWithLang('en'); ?>">
-                                <span>🇺🇸</span>  English
-                            </a>
+                            <a href="<?= getUrlWithLang('es') ?>"><span>🇪🇸</span> Español</a>
+                            <a href="<?= getUrlWithLang('en') ?>"><span>🇺🇸</span> English</a>
                         </div>
                     </div>
 
-                    <a href="https://wa.me/<?php echo urlencode($lang['header_telefono'] ?? '+57'); ?>" target="_blank" class="theme-btn">
+                    <a href="https://wa.me/<?= urlencode($lang['header_telefono'] ?? '') ?>" target="_blank" class="theme-btn">
                         WhatsApp <i class="fa-brands fa-whatsapp"></i>
                     </a>
                     
@@ -397,26 +278,3 @@ function getUrlWithLang($newLang) {
         </div>
     </div>
 </header>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const header = document.getElementById('header-sticky');
-    
-    if (header && header.classList.contains('header-interno')) {
-        header.style.cssText = `
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            width: 100% !important;
-            background-color: #ffffff !important;
-            box-shadow: 0 2px 15px rgba(0,0,0,0.1) !important;
-            z-index: 9999 !important;
-            opacity: 1 !important;
-            visibility: visible !important;
-            display: block !important;
-            transform: translateY(0) !important;
-        `;
-    }
-});
-</script>

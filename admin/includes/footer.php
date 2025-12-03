@@ -2,33 +2,35 @@
 /**
  * @file footer.php
  * @route /admin/includes/footer.php
- * @description 
+ * @description Footer del panel administrativo
  * @author Kevin Mariano
- * @version 1.0.0
+ * @version 1.0.1
  * @since 1.0.0
  * @copyright Banda de Baranoa 2025
  */
 
+if (!defined('BASE_URL')) {
+    die('Acceso denegado');
+}
 ?>
-    </div> <script src="<?php echo BASE_URL; ?>/assets/js/jquery-3.7.1.min.js"></script>
+    </div> 
+    
+    <script src="<?php echo BASE_URL; ?>/assets/js/jquery-3.7.1.min.js"></script>
     <script src="<?php echo BASE_URL; ?>/assets/js/bootstrap.bundle.min.js"></script>
     
     <script>
         $(document).ready(function() {
-            // 1. Toggle Sidebar (Click en botón)
             $("#menu-toggle").click(function(e) {
                 e.preventDefault();
                 $("#sidebar-wrapper").toggleClass("show-sidebar");
                 $("#mobileOverlay").toggleClass("active");
             });
 
-            // 2. Cerrar Sidebar (Click en fondo oscuro)
             $("#mobileOverlay").click(function() {
                 $("#sidebar-wrapper").removeClass("show-sidebar");
                 $(this).removeClass("active");
             });
 
-            // 3. Auto-cerrar alertas
             setTimeout(function() {
                 $('.alert-dismissible').fadeOut('slow');
             }, 4000);
