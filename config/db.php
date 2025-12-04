@@ -19,19 +19,24 @@ if (!defined('BASE_URL')) {
     $scriptDir = dirname($_SERVER['SCRIPT_NAME']);
     $scriptDir = str_replace('\\', '/', $scriptDir); 
     $path = ($scriptDir === '/') ? '' : $scriptDir;
+    
     define('BASE_URL', rtrim($protocol . "://" . $host . $path, '/'));
 }
 
-define('DB_HOST', 'localhost'); 
+define('DB_HOST', 'localhost');
 define('DB_NAME', 'banda_baranoa');
 define('DB_USER', 'root');
-define('DB_PASS', '');     
+define('DB_PASS', '');
 define('DB_CHARSET', 'utf8mb4');
 
 define('DB_OPTIONS', [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, 
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, 
     PDO::ATTR_EMULATE_PREPARES => false,
-    PDO::ATTR_TIMEOUT => 3 
+    PDO::ATTR_TIMEOUT => 5 
 ]);
+
+if (!defined('DEFAULT_LANG')) {
+    define('DEFAULT_LANG', 'es');
+}
 ?>
